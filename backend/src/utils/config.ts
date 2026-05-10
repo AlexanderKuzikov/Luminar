@@ -4,12 +4,13 @@ import { Paths } from './paths.js';
 import type { AppConfig, Provider } from '../types.js';
 
 const DEFAULT_CONFIG: AppConfig = {
+  port: 3333,
   active_provider: '',
+  providers: [],
   ui: {
     theme: 'dark',
     default_output: 'subfolder',
   },
-  providers: [],
 };
 
 let _config: AppConfig | null = null;
@@ -28,7 +29,7 @@ export function loadConfig(): AppConfig {
     _config = JSON.parse(raw) as AppConfig;
     return _config;
   } catch {
-    console.error('[config] Failed to parse config.json, using defaults');
+    console.error('[config] Не удалось разобрать config.json, используются дефолты');
     _config = { ...DEFAULT_CONFIG };
     return _config;
   }
@@ -51,11 +52,10 @@ export function getActiveProvider(): Provider | null {
   const provider = config.providers.find(p => p.id === config.active_provider) ?? null;
   if (!provider) return null;
 
-  // .env overrides config.json values (useful for scripting / first-run)
+  // API_KEY из .env перекрывает значение из config.json
   return {
     ...provider,
-    apiKey:  process.env.API_KEY     || provider.apiKey,
-    baseURL: process.env.API_BASE_URL || provider.baseURL,
+    apiKey: process.env.API_KEY || provider.apiKey,
   };
 }
 

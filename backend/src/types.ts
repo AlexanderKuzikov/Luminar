@@ -23,9 +23,10 @@ export interface UIConfig {
 }
 
 export interface AppConfig {
+  port: number;
   active_provider: string;
-  ui: UIConfig;
   providers: Provider[];
+  ui: UIConfig;
 }
 
 // ─── Blueprint & Snippets ─────────────────────────────────────────────────────
