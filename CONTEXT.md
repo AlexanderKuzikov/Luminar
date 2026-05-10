@@ -38,6 +38,7 @@
 
 ### Backend
 - **Express.js** — HTTP-сервер, REST API, раздача статики фронтенда
+- **openai** npm SDK — клиент к Image API (OpenAI-совместимый интерфейс, `baseURL` переопределяется под каждого провайдера)
 - **sharp** — Pre/Post-processing изображений (ресайз, конвертация форматов)
 - **Handlebars (hbs)** — шаблонизатор для сборки (компиляции) промптов из Blueprint + Library
 - **esbuild** — сборка backend-кода в единый `bundle.js` для упаковки в SEA
@@ -56,7 +57,6 @@
 - ❌ Electron (слишком тяжелый, ~350Мб, проблемы со сборкой)
 - ❌ Wails (Go) (context switching Go↔TS, `map[string]interface{}` для динамических JSON)
 - ❌ SQLite / любая реляционная БД (File-based подхода достаточно)
-- ❌ Base64 для передачи изображений (только пути к файлам и multipart/form-data)
 - ❌ WebSockets (SSE достаточно для однонаправленного стриминга прогресса)
 - ❌ CDN-ресурсы в UI (Google Fonts, unpkg, cdnjs)
 
@@ -70,7 +70,7 @@ Luminar/
 ├── app.exe                  # Node.js SEA (Single Executable Application)
 ├── public/                  # Сбилженный фронтенд (Vite build output)
 └── data/                    # Пользовательский контент (портируется вместе с exe)
-    ├── config.json          # API-ключи, настройки UI (порт, тема, модель по умолчанию)
+    ├── config.json          # Провайдеры, API-ключи, настройки UI
     ├── snippets.json        # Словарь атомарных частей промптов
     ├── blueprints/          # Шаблоны промптов (.json, Handlebars)
     │   └── example.json
@@ -95,7 +95,7 @@ Luminar/
 │   │   │   ├── compiler.ts  # Handlebars-движок сборки промптов
 │   │   │   ├── batch-controller.ts # Очередь обработки, Exponential Backoff
 │   │   │   ├── sharp-processor.ts  # Pre/Post-processing через sharp
-│   │   │   └── provider.ts  # HTTP-клиент к Image API (с timeout, retry)
+│   │   │   └── provider.ts  # OpenAI SDK клиент к Image API (multi-provider)
 │   │   ├── utils/
 │   │   │   ├── registry.ts  # Чтение/запись data/media/registry.json
 │   │   │   ├── config.ts    # Чтение/запись data/config.json
@@ -113,7 +113,7 @@ Luminar/
 │   │   ├── components/
 │   │   │   ├── SourceExplorer.vue  # Левая колонка: список файлов с чекбоксами
 │   │   │   ├── WorkspaceGrid.vue   # Центр: Grid view выбранных фото
-│   │   │   ├── ReviewCompare.vue   # Центр: Before/After шторка
+│   │   │   ├── ReviewCompare.vue   # Центр: Before/After Side-by-Side
 │   │   │   ├── Inspector.vue       # Правая колонка: Inspector & Job Settings
 │   │   │   ├── MonacoEditor.vue    # Обертка над Monaco Editor
 │   │   │   ├── ProgressBar.vue     # Прогресс батч-задачи
@@ -154,7 +154,67 @@ Luminar/
 
 ---
 
-## 5. Пайплайн обработки (Batch Controller)
+## 5. Архитектура провайдеров (Multi-Provider)
+
+### Принцип
+Все провайдеры используют **OpenAI-совместимый API**. Клиент — официальный `openai` npm SDK.
+Для смены провайдера достаточно поменять `baseURL` и `apiKey` — код провайдера не меняется.
+
+Подтверждено тестированием с `vsellm.ru` (`baseURL: "https://api.vsellm.ru/v1"`).
+Ответ всегда синхронный: `response_format: 'b64_json'` → base64 в теле ответа. Никакого polling.
+
+### Структура `data/config.json`
+```json
+{
+  "active_provider": "vsellm",
+  "ui": {
+    "theme": "dark",
+    "default_output": "subfolder"
+  },
+  "providers": [
+    {
+      "id": "vsellm",
+      "name": "VseLLM",
+      "baseURL": "https://api.vsellm.ru/v1",
+      "apiKey": "sk-xxxxxxxxxx",
+      "retouch_strategy": "edit",
+      "models": [
+        {
+          "id": "gemini-3-pro-image",
+          "name": "Gemini 3 Pro Image",
+          "modes": ["generate", "retouch"],
+          "sizes": ["1024x1024", "1536x1024", "1024x1536", "1536x1536"],
+          "quality": ["low", "medium", "high"]
+        }
+      ]
+    }
+  ]
+}
+```
+
+### Поле `retouch_strategy` (на уровне провайдера)
+Документация у российских провайдеров отсутствует или недостоверна.
+Стратегия переключается в `config.json` без перекомпиляции:
+
+| Значение | Метод SDK | Эндпоинт | Описание |
+|---|---|---|---|
+| `"edit"` | `client.images.edit()` | `/v1/images/edits` | Стандартный OpenAI Img2Img, исходник как `image` параметр |
+| `"generate"` | `client.images.generate()` | `/v1/images/generations` | Fallback: исходник кодируется в base64 data URL и передается в `prompt` |
+
+**Логирование экспериментов:** `provider.ts` пишет полный raw request и response в `data/logs/provider_YYYY-MM-DD.log` для отладки при работе с провайдерами без документации.
+
+### Пресеты ретуши (`retouch_strength`)
+Скрываем низкоуровневый параметр `strength` (0..1) за понятными пресетами в Inspector:
+
+| Пресет | `strength` | Применение |
+|---|---|---|
+| Мягкая | `0.3` | Цветокоррекция, убрать шум, незначительные дефекты |
+| Средняя | `0.6` | Убрать ржавчину/грязь, изменить освещение |
+| Сильная | `0.9` | Полное изменение фона, атмосферы, стиля |
+
+---
+
+## 6. Пайплайн обработки (Batch Controller)
 
 ### Логика очереди
 - Строго **последовательная** обработка (не Promise.all) — защита от 429 Rate Limit провайдера
@@ -170,15 +230,16 @@ Luminar/
 - Передача буфера напрямую в `multipart/form-data` (без записи на диск)
 
 ### Sharp Post-processing (после получения ответа API)
-- Получение буфера из ответа API
+- Декодирование base64 из `response.data[0].b64_json` → `Buffer.from(b64, 'base64')`
+- Передача буфера в `sharp(buffer)`
 - Конвертация в выбранный формат: `.webp({quality: 85})` / `.jpeg({quality: 90})` / `.png()`
-- Сохранение в целевую папку:
+- Сохранение в целевую папку (по умолчанию подпапка `processed/`):
   - Подпапка: `<source_dir>/processed/<original_name>.<ext>`
   - Суффикс: `<source_dir>/<original_name>_retouched.<ext>`
 
 ---
 
-## 6. Движок промптов (Prompt Compiler)
+## 7. Движок промптов (Prompt Compiler)
 
 ### Архитектура: Library + Blueprints
 
@@ -207,10 +268,9 @@ Luminar/
   "camera": "Macro close-up on helical blade, low angle, 16:9",
   "negative_prompt": "blur, noise, rust, dirt",
   "params": {
-    "cfg_scale": 7,
-    "steps": 30,
-    "width": 1536,
-    "height": 864
+    "size": "1536x1024",
+    "quality": "low",
+    "model": "gemini-3-pro-image"
   }
 }
 ```
@@ -225,30 +285,47 @@ Luminar/
 
 ---
 
-## 7. Реестр изображений (registry.json)
+## 8. Реестр изображений (registry.json)
 
 Единый SSOT для всех обработанных изображений. Инкрементальная нумерация.
+Записи группируются по `session_id` для отображения истории по сессиям.
 
 ```json
 [
   {
     "id": 1,
+    "session_id": "2026-05-10T18:00:00Z",
     "type": "retouch",
     "source_file": "C:/Photos/svaya_001.jpg",
     "result_file": "data/media/0001_svaya_001_retouched.webp",
     "blueprint_id": "promo_winter",
     "prompt_snapshot": "Steel screw pile, 108mm diameter...",
-    "model": "provider-model-v1",
-    "params": { "cfg_scale": 7, "steps": 30 },
+    "provider_id": "vsellm",
+    "model": "gemini-3-pro-image",
+    "retouch_strategy": "edit",
+    "retouch_preset": "medium",
+    "params": { "size": "1536x1024", "quality": "low" },
     "status": "success",
-    "created_at": "2026-05-10T18:00:00Z"
+    "created_at": "2026-05-10T18:05:00Z"
   }
 ]
 ```
 
+### Статусы записей
+| Статус | Описание |
+|---|---|
+| `success` | Успешно обработан, файл сохранён |
+| `failed` | API вернул ошибку после всех ретраев |
+| `rejected` | Пользователь отметил результат как неудачный (файл не удаляется) |
+
+### Сессии в UI
+- Сессия стартует при каждом запуске batch-задачи
+- `session_id` = ISO timestamp старта задачи
+- UI истории группирует записи по `session_id`, показывает дату, кол-во обработанных/упавших
+
 ---
 
-## 8. UI Layout (FullHD, Dark Theme)
+## 9. UI Layout (FullHD, Dark Theme)
 
 ### App Shell (50px Top Bar)
 - Слева: Tabs `[Ретушь] [Генерация] [Библиотека]`
@@ -258,18 +335,22 @@ Luminar/
 | Зона | Ширина | Содержимое |
 |---|---|---|
 | Source Explorer | 300px | Кнопка выбора папки, фильтр, список файлов с чекбоксами, миниатюры |
-| Workspace | ~1200px | Grid mode (выбранные фото) или Review mode (Before/After шторка) |
-| Inspector | 400px | Выбор Blueprint, Monaco Editor, Export Settings, ProgressBar, START BATCH |
+| Workspace | ~1200px | Grid mode (выбранные фото) или Review mode (Before/After Side-by-Side) |
+| Inspector | 400px | Выбор Blueprint, Monaco Editor, пресет ретуши, Export Settings, ProgressBar, START BATCH |
 
 ### Режим «Генерация»
 | Зона | Содержимое |
 |---|---|
 | Левая колонка | История генераций (хронологический список миниатюр) |
 | Центр | Одиночное изображение результата |
-| Правая колонка | Промпт, Aspect Ratio, Seed, Steps, модель |
+| Правая колонка | Промпт, размер, quality, модель, провайдер |
 
 ### Режим «Библиотека»
 - Split View: список файлов `blueprints/` + Monaco Editor для сырого JSON
+
+### Before/After (Review Mode)
+- **Side-by-Side** (два изображения рядом, 50/50)
+- Шторка-слайдер не используется — размеры оригинала и результата могут отличаться
 
 ### Горячие клавиши
 | Клавиша | Действие |
@@ -279,11 +360,11 @@ Luminar/
 | `←` / `→` | Переключение картинок |
 | `Ctrl+S` | Сохранить Blueprint |
 | `1` / `2` / `3` | Переключение режимов (Top Bar вкладки) |
-| `Del` | Удалить выбранный результат из Галереи (с подтверждением) |
+| `Del` | Пометить результат как `rejected` (с подтверждением) |
 
 ---
 
-## 9. Безопасность
+## 10. Безопасность
 
 - API-ключи хранятся в `data/config.json` plain text (машина пользователя, без сети)
 - Express слушает строго `127.0.0.1` — недоступен из сети
@@ -292,7 +373,7 @@ Luminar/
 
 ---
 
-## 10. Сборка и Дистрибуция
+## 11. Сборка и Дистрибуция
 
 ### Процесс сборки (скрипт `scripts/build-sea.js`)
 1. `vite build` → `backend/public/`
@@ -300,7 +381,7 @@ Luminar/
 3. Создать `sea-config.json` (Node.js SEA конфиг)
 4. `node --experimental-sea-config sea-config.json` → blob
 5. Инжект blob в копию `node.exe`
-6. Подписать / патч PE-заголовки для скрытия консоли
+6. Патч PE-заголовков для скрытия консоли
 7. Скопировать `app.exe` + `public/` + стартовые `data/` → `release/`
 8. Запаковать в ZIP
 
@@ -310,7 +391,7 @@ Luminar/
 
 ---
 
-## 11. TODO / Roadmap
+## 12. TODO / Roadmap
 
 ### v1 (MVP — текущий спринт)
 - [ ] Backend: Bootstrap (index.ts, порт, open browser)
@@ -318,24 +399,24 @@ Luminar/
 - [ ] Backend: services/sharp-processor.ts
 - [ ] Backend: services/batch-controller.ts
 - [ ] Backend: services/compiler.ts (Handlebars)
-- [ ] Backend: services/provider.ts (HTTP-клиент к Image API)
+- [ ] Backend: services/provider.ts (openai SDK, multi-provider, dual strategy)
 - [ ] Frontend: Layout (App Shell, 3 колонки)
 - [ ] Frontend: SourceExplorer.vue
-- [ ] Frontend: Inspector.vue + Monaco Editor
-- [ ] Frontend: ReviewCompare.vue (Before/After)
+- [ ] Frontend: Inspector.vue + Monaco Editor + пресеты ретуши
+- [ ] Frontend: ReviewCompare.vue (Before/After Side-by-Side)
 - [ ] Frontend: ProgressBar + SSE-стриминг прогресса
+- [ ] Frontend: История сессий (registry.json viewer)
 - [ ] Build: SEA-скрипт упаковки
 
 ### v2 (Будущие версии)
 - [ ] Визуальный конструктор промптов (Node-based UI / Slots)
-- [ ] Поддержка нескольких провайдеров Image API
 - [ ] fsnotify: авто-обновление галереи при изменении файлов вне приложения
 - [ ] История с поиском и фильтрацией по тегам
 - [ ] Версионирование Blueprints (diff между версиями промпта)
 
 ---
 
-## 12. Договорённости и решения (Changelog)
+## 13. Договорённости и решения (Changelog)
 
 | Дата | Решение | Обоснование |
 |---|---|---|
@@ -348,3 +429,11 @@ Luminar/
 | 2026-05-10 | Tailwind v4 | CSS-first, без конфигов, офлайн-дружелюбен |
 | 2026-05-10 | Sequential batch (не parallel) | Защита от 429 Rate Limit у провайдеров |
 | 2026-05-10 | Sharp для pre/post-processing | Надежная работа с буферами, конвертация без диска |
+| 2026-05-10 | openai SDK с переопределённым baseURL | Один клиент для всех OpenAI-совместимых провайдеров |
+| 2026-05-10 | response_format: b64_json | Синхронный ответ, подтверждён тестом на vsellm.ru |
+| 2026-05-10 | retouch_strategy в config.json | Переключение edit/generate без перекомпиляции — для работы с провайдерами без документации |
+| 2026-05-10 | Пресеты ретуши вместо raw strength | Понятный UX, strength маппируется внутри provider.ts |
+| 2026-05-10 | session_id в registry.json | Группировка истории по сессиям, отслеживание использования |
+| 2026-05-10 | Статус rejected (не удаление) | Файлы остаются на диске, пользователь управляет ими сам |
+| 2026-05-10 | Side-by-Side вместо шторки | Размеры оригинала и результата могут отличаться |
+| 2026-05-10 | Output по умолчанию в подпапку processed/ | Не засоряет исходную папку |
