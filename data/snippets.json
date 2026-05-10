@@ -1,0 +1,11 @@
+{
+  "objects": {
+    "example": "Describe your object here in detail"
+  },
+  "lighting": {
+    "studio_soft": "Soft studio lighting, diffused key light from 45 degrees, fill light, no harsh shadows"
+  },
+  "environments": {
+    "white_bg": "Clean white background, studio setting"
+  }
+}

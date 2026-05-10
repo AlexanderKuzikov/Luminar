@@ -1,0 +1,8 @@
+{
+  "active_provider": "",
+  "ui": {
+    "theme": "dark",
+    "default_output": "subfolder"
+  },
+  "providers": []
+}
