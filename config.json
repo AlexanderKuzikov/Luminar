@@ -1,9 +1,22 @@
 {
   "port": 3333,
-  "active_provider": "",
-  "providers": [],
-  "ui": {
-    "theme": "dark",
-    "default_output": "subfolder"
-  }
+  "active_provider": "VSELLM",
+  "providers": [
+    {
+      "id": "VSELLM",
+      "name": "LM Studio",
+      "baseURL": "https://api.vsellm.ru/v1",
+      "apiKey": "",
+      "retouch_strategy": "edit",
+      "models": [
+        {
+          "id": "qwen",
+          "name": "Qwen 2.5",
+          "modes": ["generate", "retouch"],
+          "sizes": ["1024x1024"],
+          "quality": ["standard"]
+        }
+      ]
+    }
+  ]
 }
