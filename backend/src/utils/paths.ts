@@ -7,12 +7,16 @@ let _dataDir: string | null = null;
 /**
  * Определяет корневую директорию данных.
  * Portable-режим: папка data/ рядом с исполняемым файлом или process.cwd().
- * Fallback: %LOCALAPPDATA%/Luminar (или ~/Luminar на не-Windows).
+ * Fallback: %LOCALAPPDATA%/luminar/data (или ~/luminar/data на не-Windows).
  */
 export function getDataDir(): string {
   if (_dataDir) return _dataDir;
 
-  // В dev-режиме: ищем data/ в корне репозитория (на 2 уровня выше backend/src)
+  if (process.env.DATA_DIR) {
+    _dataDir = process.env.DATA_DIR;
+    return _dataDir;
+  }
+
   const candidates = [
     path.join(process.cwd(), 'data'),
     path.join(path.dirname(process.execPath), 'data'),
@@ -26,9 +30,8 @@ export function getDataDir(): string {
     }
   }
 
-  // Fallback: AppData
   const appData = process.env.LOCALAPPDATA ?? os.homedir();
-  _dataDir = path.join(appData, 'Luminar', 'data');
+  _dataDir = path.join(appData, 'luminar', 'data');
   return _dataDir;
 }
 

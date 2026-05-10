@@ -48,7 +48,15 @@ export function saveConfig(config: AppConfig): void {
 
 export function getActiveProvider(): Provider | null {
   const config = getConfig();
-  return config.providers.find(p => p.id === config.active_provider) ?? null;
+  const provider = config.providers.find(p => p.id === config.active_provider) ?? null;
+  if (!provider) return null;
+
+  // .env overrides config.json values (useful for scripting / first-run)
+  return {
+    ...provider,
+    apiKey:  process.env.API_KEY     || provider.apiKey,
+    baseURL: process.env.API_BASE_URL || provider.baseURL,
+  };
 }
 
 export function getProviderById(id: string): Provider | null {
