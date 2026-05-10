@@ -1,0 +1,24 @@
+{
+  "name": "luminar-frontend",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "vue": "^3.4.29",
+    "pinia": "^2.1.7",
+    "vue-router": "^4.3.3",
+    "lucide-vue-next": "^0.396.0",
+    "monaco-editor": "^0.50.0"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^5.0.5",
+    "@vite-plugin-monaco-editor": "^1.1.0",
+    "typescript": "^5.4.5",
+    "vite": "^5.3.1",
+    "vue-tsc": "^2.0.21"
+  }
+}
