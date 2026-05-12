@@ -1,20 +1,31 @@
 {
   "port": 3333,
   "active_provider": "VSELLM",
+  "ui": {
+    "theme": "dark",
+    "default_output": "subfolder"
+  },
   "providers": [
     {
       "id": "VSELLM",
-      "name": "LM Studio",
+      "name": "VseLLM / LM Studio",
       "baseURL": "https://api.vsellm.ru/v1",
-      "apiKey": "",
+      "active_key": "key_1",
+      "keys": [
+        {
+          "id": "key_1",
+          "label": "Default",
+          "envVar": "VSELLM_KEY_1"
+        }
+      ],
       "retouch_strategy": "edit",
       "models": [
         {
-          "id": "qwen",
-          "name": "Qwen 2.5",
+          "id": "gemini-3-pro-image",
+          "name": "Gemini 3 Pro Image",
           "modes": ["generate", "retouch"],
-          "sizes": ["1024x1024"],
-          "quality": ["standard"]
+          "sizes": ["1024x1024", "1536x1024", "1024x1536"],
+          "quality": ["standard", "hd"]
         }
       ]
     }

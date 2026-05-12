@@ -1,5 +1,11 @@
 // ─── Provider & Config ───────────────────────────────────────────────────────
 
+export interface ProviderKey {
+  id: string;      // Уникальный идентификатор ключа, напр. "key_1"
+  label: string;   // Человекочитаемое название, напр. "Production"
+  envVar: string;  // Имя переменной окружения, напр. "VSELLM_KEY_1"
+}
+
 export interface ProviderModel {
   id: string;
   name: string;
@@ -12,7 +18,8 @@ export interface Provider {
   id: string;
   name: string;
   baseURL: string;
-  apiKey: string;
+  active_key: string;          // id активного ProviderKey
+  keys: ProviderKey[];         // Список ключей (значения — только в .env)
   retouch_strategy: 'edit' | 'generate';
   models: ProviderModel[];
 }

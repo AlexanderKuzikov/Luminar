@@ -19,6 +19,7 @@ export function loadConfig(): AppConfig {
   const configPath = Paths.config();
 
   if (!fs.existsSync(configPath)) {
+    // config.json должен лежать в корне — если нет, создаём дефолтный
     saveConfig(DEFAULT_CONFIG);
     _config = { ...DEFAULT_CONFIG };
     return _config;
@@ -47,19 +48,30 @@ export function saveConfig(config: AppConfig): void {
   _config = config;
 }
 
+/**
+ * Возвращает активного провайдера с разрешённым API-ключом из .env.
+ * Значение ключа никогда не хранится в config.json — только имя envVar.
+ */
 export function getActiveProvider(): Provider | null {
   const config = getConfig();
   const provider = config.providers.find(p => p.id === config.active_provider) ?? null;
   if (!provider) return null;
-
-  // API_KEY из .env перекрывает значение из config.json
-  return {
-    ...provider,
-    apiKey: process.env.API_KEY || provider.apiKey,
-  };
+  return resolveProviderKey(provider);
 }
 
 export function getProviderById(id: string): Provider | null {
   const config = getConfig();
-  return config.providers.find(p => p.id === id) ?? null;
+  const provider = config.providers.find(p => p.id === id) ?? null;
+  if (!provider) return null;
+  return resolveProviderKey(provider);
+}
+
+/**
+ * Подставляет реальный API-ключ из process.env по active_key → envVar.
+ * Возвращает провайдера с полем apiKey для совместимости с OpenAI SDK.
+ */
+function resolveProviderKey(provider: Provider): Provider & { apiKey: string } {
+  const keyEntry = provider.keys.find(k => k.id === provider.active_key);
+  const apiKey = keyEntry ? (process.env[keyEntry.envVar] ?? '') : '';
+  return { ...provider, apiKey };
 }

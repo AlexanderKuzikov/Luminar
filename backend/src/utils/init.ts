@@ -3,12 +3,6 @@ import path from 'path';
 import { getDataDir, Paths } from './paths.js';
 import { logger } from './logger.js';
 
-const DEFAULT_CONFIG = {
-  active_provider: '',
-  ui: { theme: 'dark', default_output: 'subfolder' },
-  providers: [],
-};
-
 const DEFAULT_SNIPPETS = {
   objects: {
     example: 'Describe your object here in detail'
@@ -30,11 +24,15 @@ const DEFAULT_BLUEPRINT = {
   negative_prompt: 'blur, noise, watermark, text',
   params: {
     size: '1024x1024',
-    quality: 'low',
-    model: ''
+    quality: 'standard',
+    model: 'gemini-3-pro-image'
   }
 };
 
+/**
+ * Инициализирует data/ директорию при первом запуске.
+ * config.json НЕ трогается — он живёт в корне репо/рядом с exe.
+ */
 export function initDataDir(): void {
   const dataDir = getDataDir();
   logger.info(`[init] Data directory: ${dataDir}`);
@@ -51,11 +49,6 @@ export function initDataDir(): void {
       fs.mkdirSync(dir, { recursive: true });
       logger.info(`[init] Created: ${dir}`);
     }
-  }
-
-  if (!fs.existsSync(Paths.config())) {
-    fs.writeFileSync(Paths.config(), JSON.stringify(DEFAULT_CONFIG, null, 2), 'utf-8');
-    logger.info('[init] Created default config.json');
   }
 
   if (!fs.existsSync(Paths.snippets())) {
