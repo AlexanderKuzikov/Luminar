@@ -1,9 +1,9 @@
 // ─── Provider & Config ───────────────────────────────────────────────────────
 
 export interface ProviderKey {
-  id: string;      // Уникальный идентификатор ключа, напр. "key_1"
-  label: string;   // Человекочитаемое название, напр. "Production"
-  envVar: string;  // Имя переменной окружения, напр. "VSELLM_KEY_1"
+  id: string;
+  label: string;
+  envVar: string;
 }
 
 export interface ProviderModel {
@@ -18,8 +18,8 @@ export interface Provider {
   id: string;
   name: string;
   baseURL: string;
-  active_key: string;          // id активного ProviderKey
-  keys: ProviderKey[];         // Список ключей (значения — только в .env)
+  active_key: string;
+  keys: ProviderKey[];
   retouch_strategy: 'edit' | 'generate';
   models: ProviderModel[];
 }
@@ -36,26 +36,16 @@ export interface AppConfig {
   ui: UIConfig;
 }
 
-// ─── Blueprint & Snippets ─────────────────────────────────────────────────────
+// ─── Prompts ──────────────────────────────────────────────────────────────────
 
-export interface BlueprintParams {
-  size?: string;
-  quality?: string;
-  model?: string;
-  [key: string]: unknown;
-}
-
-export interface Blueprint {
+export interface Prompt {
+  id: string;
   title: string;
-  subject?: string;
-  environment?: string;
-  lighting?: string;
-  camera?: string;
-  negative_prompt?: string;
-  params: BlueprintParams;
+  type: 'generate' | 'retouch';
+  text: string;
+  created_at: string;
+  updated_at: string;
 }
-
-export type Snippets = Record<string, Record<string, string>>;
 
 // ─── Registry ────────────────────────────────────────────────────────────────
 
@@ -68,7 +58,7 @@ export interface RegistryEntry {
   type: JobType;
   source_file?: string;
   result_file: string;
-  blueprint_id: string;
+  prompt_id: string;
   prompt_snapshot: string;
   provider_id: string;
   model: string;
@@ -104,17 +94,24 @@ export interface BatchItem {
 // ─── API Request/Response ─────────────────────────────────────────────────────
 
 export interface BatchRetouchRequest {
-  source_files: string[];    // Абсолютные пути к исходным файлам
-  blueprint_id: string;
+  source_files: string[];
+  prompt_id: string;
+  model_id?: string;
+  size?: string;
+  quality?: string;
   retouch_preset: 'soft' | 'medium' | 'strong';
   output_mode: 'subfolder' | 'suffix';
   output_format: 'webp' | 'jpeg' | 'png';
-  max_dimension: number;     // 0 = без ресайза
+  max_dimension: number;
 }
 
 export interface GenerateRequest {
-  blueprint_id: string;
-  prompt_override?: string;  // Если юзер отредактировал промпт в Monaco
+  prompt_id?: string;
+  prompt_text?: string;
+  model_id?: string;
+  size?: string;
+  quality?: string;
+  output_format?: 'webp' | 'jpeg' | 'png';
 }
 
 export interface SSEEvent {

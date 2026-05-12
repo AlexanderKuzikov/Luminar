@@ -1,57 +1,47 @@
 import { defineStore } from 'pinia';
-import { ref, computed } from 'vue';
-import { api, type BatchJob, type BatchRetouchRequest, type RegistryEntry } from '@/api';
+import { ref } from 'vue';
+import { api, type BatchJob, type BatchRetouchRequest } from '@/api';
 
 export const useBatchStore = defineStore('batch', () => {
   const currentJob = ref<BatchJob | null>(null);
-  const results = ref<RegistryEntry[]>([]);
-  const reviewIndex = ref(0);
-  const isRunning = computed(() => currentJob.value?.status === 'running' || currentJob.value?.status === 'pending');
-  let sse: EventSource | null = null;
+  const isRunning = ref(false);
+  let eventSource: EventSource | null = null;
 
-  async function startBatch(req: BatchRetouchRequest) {
-    const { jobId } = await api.startBatch(req);
+  async function startBatch(data: BatchRetouchRequest) {
+    isRunning.value = true;
+    currentJob.value = null;
 
-    currentJob.value = {
-      id: jobId,
-      session_id: '',
-      status: 'pending',
-      total: req.source_files.length,
-      completed: 0,
-      failed: 0,
-      items: req.source_files.map(f => ({ source_file: f, status: 'pending' })),
-    };
+    try {
+      const { jobId } = await api.startBatch(data);
+      const job = await api.getBatch(jobId);
+      currentJob.value = job;
 
-    results.value = [];
-    listenSSE(jobId);
-  }
+      eventSource?.close();
+      eventSource = api.batchEvents(jobId);
 
-  function listenSSE(jobId: string) {
-    sse?.close();
-    sse = api.batchEvents(jobId);
+      eventSource.onmessage = (e) => {
+        const event = JSON.parse(e.data);
+        if (!currentJob.value) return;
 
-    sse.onmessage = (e: MessageEvent) => {
-      const event = JSON.parse(e.data as string);
-
-      if (event.type === 'init') {
-        currentJob.value = event.payload as BatchJob;
-      }
-      if (event.type === 'progress' || event.type === 'item_done' || event.type === 'item_failed') {
-        if (currentJob.value) {
-          currentJob.value = { ...currentJob.value, ...event.payload };
+        if (event.type === 'progress') {
+          currentJob.value.completed = event.payload.completed;
+        } else if (event.type === 'item_done') {
+          const item = currentJob.value.items.find(i => i.source_file === event.payload.source_file);
+          if (item) { item.status = 'success'; item.result_file = event.payload.result_file; }
+          currentJob.value.completed = event.payload.completed;
+        } else if (event.type === 'item_failed') {
+          const item = currentJob.value.items.find(i => i.source_file === event.payload.source_file);
+          if (item) { item.status = 'failed'; item.error = event.payload.error; }
+        } else if (event.type === 'batch_done' || event.type === 'batch_cancelled') {
+          currentJob.value.status = event.type === 'batch_done' ? 'done' : 'cancelled';
+          isRunning.value = false;
+          eventSource?.close();
         }
-      }
-      if (event.type === 'batch_done') {
-        if (currentJob.value) currentJob.value.status = 'done';
-        sse?.close();
-        // Перезагружаем историю
-        loadRecentResults();
-      }
-      if (event.type === 'batch_cancelled') {
-        if (currentJob.value) currentJob.value.status = 'cancelled';
-        sse?.close();
-      }
-    };
+      };
+    } catch (err) {
+      isRunning.value = false;
+      throw err;
+    }
   }
 
   async function cancelBatch() {
@@ -59,17 +49,5 @@ export const useBatchStore = defineStore('batch', () => {
     await api.cancelBatch(currentJob.value.id);
   }
 
-  async function loadRecentResults() {
-    const entries = await api.getRegistry();
-    // Берём последние 50 записей
-    results.value = entries.slice(-50).reverse();
-  }
-
-  async function rejectResult(id: number) {
-    await api.rejectEntry(id);
-    const entry = results.value.find(r => r.id === id);
-    if (entry) entry.status = 'rejected';
-  }
-
-  return { currentJob, results, reviewIndex, isRunning, startBatch, cancelBatch, loadRecentResults, rejectResult };
+  return { currentJob, isRunning, startBatch, cancelBatch };
 });

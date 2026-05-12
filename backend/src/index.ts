@@ -13,20 +13,17 @@ import { loadConfig } from './utils/config.js';
 import { logger } from './utils/logger.js';
 import { getPublicDir } from './utils/paths.js';
 
-import filesRouter from './routes/files.js';
-import batchRouter from './routes/batch.js';
+import filesRouter    from './routes/files.js';
+import batchRouter    from './routes/batch.js';
 import generateRouter from './routes/generate.js';
-import blueprintsRouter from './routes/blueprints.js';
-import snippetsRouter from './routes/snippets.js';
-import configRouter from './routes/config.js';
+import promptsRouter  from './routes/prompts.js';
+import configRouter   from './routes/config.js';
 import registryRouter from './routes/registry.js';
 
 function isPortFree(port: number): Promise<boolean> {
   return new Promise(resolve => {
     const server = net.createServer();
-    server.listen(port, '127.0.0.1', () => {
-      server.close(() => resolve(true));
-    });
+    server.listen(port, '127.0.0.1', () => { server.close(() => resolve(true)); });
     server.on('error', () => resolve(false));
   });
 }
@@ -46,13 +43,12 @@ async function bootstrap(): Promise<void> {
   const app = express();
   app.use(express.json({ limit: '50mb' }));
 
-  app.use('/api/files',      filesRouter);
-  app.use('/api/batch',      batchRouter);
-  app.use('/api/generate',   generateRouter);
-  app.use('/api/blueprints', blueprintsRouter);
-  app.use('/api/snippets',   snippetsRouter);
-  app.use('/api/config',     configRouter);
-  app.use('/api/registry',   registryRouter);
+  app.use('/api/files',    filesRouter);
+  app.use('/api/batch',    batchRouter);
+  app.use('/api/generate', generateRouter);
+  app.use('/api/prompts',  promptsRouter);
+  app.use('/api/config',   configRouter);
+  app.use('/api/registry', registryRouter);
 
   const publicDir = getPublicDir();
   app.use(express.static(publicDir));

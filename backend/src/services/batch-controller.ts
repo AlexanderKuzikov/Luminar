@@ -1,17 +1,24 @@
 import { v4 as uuidv4 } from 'uuid';
 import path from 'path';
-import { compile } from './compiler.js';
+import fs from 'fs';
 import { preProcess, postProcess, buildOutputPath } from './sharp-processor.js';
 import { retouch } from './provider.js';
 import { addEntry } from '../utils/registry.js';
 import { getActiveProvider } from '../utils/config.js';
 import { logger } from '../utils/logger.js';
-import type { BatchJob, BatchRetouchRequest } from '../types.js';
+import { Paths } from '../utils/paths.js';
+import type { BatchJob, BatchRetouchRequest, Prompt } from '../types.js';
 
 const RETRY_DELAYS = [1000, 2000, 4000];
 
 const activeBatches = new Map<string, BatchJob>();
 const sseClients = new Map<string, ((event: string) => void)[]>();
+
+function readPrompts(): Prompt[] {
+  const file = Paths.prompts();
+  if (!fs.existsSync(file)) return [];
+  try { return JSON.parse(fs.readFileSync(file, 'utf-8')); } catch { return []; }
+}
 
 function emit(jobId: string, event: object): void {
   const clients = sseClients.get(jobId) ?? [];
@@ -65,10 +72,16 @@ export async function startBatchRetouch(req: BatchRetouchRequest): Promise<strin
   const provider = getActiveProvider();
   if (!provider) throw new Error('No active provider configured');
 
-  const { blueprint, promptSnapshot } = compile(req.blueprint_id);
-  const model = blueprint.params.model ?? provider.models[0]?.id ?? '';
-  const size = blueprint.params.size ?? '1024x1024';
-  const quality = blueprint.params.quality ?? 'low';
+  // Resolve prompt
+  const prompts = readPrompts();
+  const prompt = prompts.find(p => p.id === req.prompt_id);
+  if (!prompt) throw new Error(`Prompt not found: ${req.prompt_id}`);
+  const promptSnapshot = prompt.text;
+
+  // Model params: request > provider.models[0]
+  const model   = req.model_id  ?? provider.models[0]?.id        ?? '';
+  const size    = req.size      ?? provider.models[0]?.sizes[0]  ?? '1024x1024';
+  const quality = req.quality   ?? provider.models[0]?.quality[0] ?? 'standard';
 
   const job: BatchJob = {
     id: jobId,
@@ -81,7 +94,6 @@ export async function startBatchRetouch(req: BatchRetouchRequest): Promise<strin
   };
   activeBatches.set(jobId, job);
 
-  // Запускаем обработку асинхронно, не блокируем HTTP-ответ
   setImmediate(async () => {
     job.status = 'running';
 
@@ -117,7 +129,7 @@ export async function startBatchRetouch(req: BatchRetouchRequest): Promise<strin
           type: 'retouch',
           source_file: item.source_file,
           result_file: outputPath,
-          blueprint_id: req.blueprint_id,
+          prompt_id: req.prompt_id,
           prompt_snapshot: promptSnapshot,
           provider_id: provider.id,
           model,
@@ -130,12 +142,7 @@ export async function startBatchRetouch(req: BatchRetouchRequest): Promise<strin
 
         emit(jobId, {
           type: 'item_done',
-          payload: {
-            source_file: item.source_file,
-            result_file: outputPath,
-            completed: job.completed,
-            total: job.total,
-          },
+          payload: { source_file: item.source_file, result_file: outputPath, completed: job.completed, total: job.total },
         });
       } catch (err: unknown) {
         const errorMsg = err instanceof Error ? err.message : String(err);
@@ -148,7 +155,7 @@ export async function startBatchRetouch(req: BatchRetouchRequest): Promise<strin
           type: 'retouch',
           source_file: item.source_file,
           result_file: '',
-          blueprint_id: req.blueprint_id,
+          prompt_id: req.prompt_id,
           prompt_snapshot: promptSnapshot,
           provider_id: provider.id,
           model,

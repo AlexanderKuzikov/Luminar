@@ -1,5 +1,3 @@
-// Единая точка для всех fetch-запросов к бэкенду
-
 const BASE = '/api';
 
 async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
@@ -21,16 +19,11 @@ export const api = {
   scanFolder:   (path: string) => request<{ path: string; files: FileEntry[] }>('GET', `/files/scan-folder?path=${encodeURIComponent(path)}`),
   imageUrl:     (path: string) => `/api/files/image?path=${encodeURIComponent(path)}`,
 
-  // Blueprints
-  listBlueprints:  () => request<BlueprintMeta[]>('GET', '/blueprints'),
-  getBlueprint:    (id: string) => request<unknown>('GET', `/blueprints/${id}`),
-  saveBlueprint:   (id: string, data: unknown) => request<{ ok: boolean }>('PUT', `/blueprints/${id}`, data),
-  createBlueprint: (data: unknown) => request<{ ok: boolean; id: string }>('POST', '/blueprints', data),
-  deleteBlueprint: (id: string) => request<{ ok: boolean }>('DELETE', `/blueprints/${id}`),
-
-  // Snippets
-  getSnippets:  () => request<Record<string, Record<string, string>>>('GET', '/snippets'),
-  saveSnippets: (data: unknown) => request<{ ok: boolean }>('PUT', '/snippets', data),
+  // Prompts
+  listPrompts:   (type?: 'generate' | 'retouch') => request<Prompt[]>('GET', `/prompts${type ? `?type=${type}` : ''}`),
+  createPrompt:  (data: Pick<Prompt, 'title' | 'type' | 'text'>) => request<Prompt>('POST', '/prompts', data),
+  updatePrompt:  (id: string, data: Partial<Pick<Prompt, 'title' | 'text'>>) => request<Prompt>('PUT', `/prompts/${id}`, data),
+  deletePrompt:  (id: string) => request<{ ok: boolean }>('DELETE', `/prompts/${id}`),
 
   // Config
   getConfig:  () => request<AppConfig>('GET', '/config'),
@@ -42,7 +35,7 @@ export const api = {
   cancelBatch: (id: string) => request<{ cancelled: boolean }>('DELETE', `/batch/${id}`),
 
   // Generate
-  generate: (data: { blueprint_id: string; prompt_override?: string }) =>
+  generate: (data: GenerateRequest) =>
     request<{ entry: RegistryEntry; result_file: string }>('POST', '/generate', data),
 
   // Registry
@@ -54,16 +47,24 @@ export const api = {
   batchEvents: (jobId: string) => new EventSource(`/api/batch/${jobId}/events`),
 };
 
-// --- Types (mirrors backend) ---
+// --- Types ---
 
 export interface FileEntry { name: string; path: string; size: number; }
-export interface BlueprintMeta { id: string; title: string; }
+
+export interface Prompt {
+  id: string;
+  title: string;
+  type: 'generate' | 'retouch';
+  text: string;
+  created_at: string;
+  updated_at: string;
+}
 
 export interface ProviderKey {
   id: string;
   label: string;
   envVar: string;
-  configured: boolean; // флаг от бэкенда: есть ли значение в .env
+  configured: boolean;
 }
 
 export interface ModelConfig {
@@ -96,9 +97,21 @@ export interface AppConfig {
   providers: ProviderConfig[];
 }
 
+export interface GenerateRequest {
+  prompt_id?: string;
+  prompt_text?: string;
+  model_id?: string;
+  size?: string;
+  quality?: string;
+  output_format?: 'webp' | 'jpeg' | 'png';
+}
+
 export interface BatchRetouchRequest {
   source_files: string[];
-  blueprint_id: string;
+  prompt_id: string;
+  model_id?: string;
+  size?: string;
+  quality?: string;
   retouch_preset: 'soft' | 'medium' | 'strong';
   output_mode: 'subfolder' | 'suffix';
   output_format: 'webp' | 'jpeg' | 'png';
@@ -119,7 +132,7 @@ export interface BatchItem {
 export interface RegistryEntry {
   id: number; session_id: string; type: string;
   source_file?: string; result_file: string;
-  blueprint_id: string; prompt_snapshot: string;
+  prompt_id: string; prompt_snapshot: string;
   provider_id: string; model: string;
   retouch_preset?: string; status: string;
   error?: string; created_at: string;
