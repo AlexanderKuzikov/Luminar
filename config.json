@@ -8,7 +8,7 @@
   "providers": [
     {
       "id": "VSELLM",
-      "name": "VseLLM / LM Studio",
+      "name": "VseLLM",
       "baseURL": "https://api.vsellm.ru/v1",
       "active_key": "key_1",
       "keys": [
