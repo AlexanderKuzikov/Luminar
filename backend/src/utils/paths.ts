@@ -1,13 +1,11 @@
 import path from 'path';
 import fs from 'fs';
-import os from 'os';
-
-let _dataDir: string | null = null;
 
 /**
  * Корень репозитория / рабочей директории.
- * В dev: process.cwd() = backend/, идём на уровень выше.
- * В portable-сборке: рядом с исполняемым файлом.
+ * Dev:      cwd = backend/  → идём на уровень выше
+ * Portable: рядом с exe → директория exe
+ * Fallback: cwd как есть
  */
 export function getRootDir(): string {
   // dev: cwd = backend/
@@ -22,32 +20,21 @@ export function getRootDir(): string {
   return process.cwd();
 }
 
+/**
+ * data/ всегда рядом с корнем.
+ * Если DATA_DIR задан в .env — используем его.
+ * Без проверки existsSync — папка будет создана через initDataDir().
+ * НИКОГДА не падаем в AppData.
+ */
 export function getDataDir(): string {
-  if (_dataDir) return _dataDir;
-
-  if (process.env.DATA_DIR) {
-    _dataDir = process.env.DATA_DIR;
-    return _dataDir;
-  }
-
-  const root = getRootDir();
-  const candidate = path.join(root, 'data');
-  if (fs.existsSync(candidate)) {
-    _dataDir = candidate;
-    return _dataDir;
-  }
-
-  // fallback: AppData
-  const appData = process.env.LOCALAPPDATA ?? os.homedir();
-  _dataDir = path.join(appData, 'luminar', 'data');
-  return _dataDir;
+  if (process.env.DATA_DIR) return process.env.DATA_DIR;
+  return path.join(getRootDir(), 'data');
 }
 
 export function getPublicDir(): string {
   const candidates = [
     path.join(process.cwd(), 'public'),
     path.join(path.dirname(process.execPath), 'public'),
-    path.join(__dirname, '..', 'public'),
   ];
   for (const c of candidates) {
     if (fs.existsSync(c)) return c;
