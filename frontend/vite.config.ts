@@ -1,5 +1,6 @@
 import { defineConfig } from 'vite';
 import vue from '@vitejs/plugin-vue';
+import tailwindcss from '@tailwindcss/vite';
 import monacoEditorPlugin from 'vite-plugin-monaco-editor';
 import path from 'path';
 import { readFileSync } from 'fs';
@@ -18,7 +19,6 @@ function getBackendPort(): number {
 const backendPort = getBackendPort();
 
 // vite-plugin-monaco-editor экспортирует объект с .default в CJS-окружении
-// поэтому нужно проверить оба варианта
 const monacoPlugin = typeof monacoEditorPlugin === 'function'
   ? monacoEditorPlugin
   : (monacoEditorPlugin as any).default;
@@ -26,6 +26,7 @@ const monacoPlugin = typeof monacoEditorPlugin === 'function'
 export default defineConfig({
   plugins: [
     vue(),
+    tailwindcss(),
     monacoPlugin({
       languageWorkers: ['json', 'editorWorkerService'],
     }),
