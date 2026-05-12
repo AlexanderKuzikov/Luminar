@@ -2,8 +2,6 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 
 export function getRootDir(): string {
-  // SEA: process.execPath рядом с config.json
-  // Dev: два уровня вверх от backend/src/utils/
   if (process.env.LUMINAR_ROOT) return process.env.LUMINAR_ROOT;
   const __dirname = path.dirname(fileURLToPath(import.meta.url));
   return path.resolve(__dirname, '..', '..', '..');
@@ -21,6 +19,7 @@ export const Paths = {
   data:     () => getDataDir(),
   media:    () => path.join(getDataDir(), 'media'),
   logs:     () => path.join(getDataDir(), 'logs'),
+  config:   () => path.join(getRootDir(), 'config.json'),
   prompts:  () => path.join(getDataDir(), 'prompts.json'),
   registry: () => path.join(getDataDir(), 'media', 'registry.json'),
 };
