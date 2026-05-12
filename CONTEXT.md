@@ -17,13 +17,16 @@ Luminar — локальный Desktop-first инструмент для пак�
 
 | Компонент | Статус |
 |---|---|
-| Backend: routes, services, utils | ✅ Написан (не тестировался) |
-| Frontend: Vue 3, все Views, компоненты | ✅ Написан (не тестировался) |
+| Backend: routes, services, utils | ✅ Написан |
+| Frontend: Vue 3, все Views, компоненты | ✅ Написан |
 | Сборка frontend → backend/public | ✅ Настроена (Vite) |
 | config.json в корне (единый источник) | ✅ Реализован |
 | Multi-key провайдеры (ключи через .env) | ✅ Реализован |
 | Авто-поиск свободного порта | ✅ Реализован |
-| Шрифт Inter | ⚠️ Файл отсутствует — добавить вручную |
+| Dev-режим (npm run dev в корне) | ✅ Работает (проверено) |
+| Vite поднимается, `/api/blueprints` отвечает | ✅ Проверено — `[{"id":"example","title":"Example Blueprint"}]` |
+| Inter шрифт (Cyrillic) | ✅ Исправлен — `@font-face` split по `unicode-range` |
+| `concurrently` → `npm-run-all` | ✅ Заменён (Windows TCP fix) |
 | Тесты | ❌ Отсутствуют |
 | CI/CD | ❌ Отсутствует |
 | Electron-обёртка | ❌ Не реализована (в планах) |
@@ -120,9 +123,10 @@ Luminar/
 ├── README.md
 ├── CONTEXT.md
 ├── LICENSE
+├── package.json             # ← Корневой: npm-run-all, скрипты dev/build
 ├── backend/
 │   ├── src/
-│   │   ├── index.ts                 # Bootstrap, port-finder, open browser
+│   │   ├── index.ts                 # Bootstrap, port-finder (авто-открытие браузера УБРАНО)
 │   │   ├── types.ts                 # Все интерфейсы (ProviderKey, Provider, AppConfig...)
 │   │   ├── routes/
 │   │   │   ├── files.ts             # PowerShell folder picker, /api/image
@@ -149,6 +153,7 @@ Luminar/
 ├── frontend/
 │   ├── src/
 │   │   ├── main.ts
+│   │   ├── App.vue
 │   │   ├── api/index.ts             # fetch-клиент + все типы
 │   │   ├── stores/
 │   │   │   ├── files.ts             # selectFolder, scan, selection
@@ -165,15 +170,15 @@ Luminar/
 │   │       ├── ReviewCompare.vue    # Before/After + Reject
 │   │       ├── Inspector.vue        # Blueprint, настройки, прогресс, Старт/Стоп
 │   │       ├── MonacoEditor.vue     # Monaco v-model wrapper
-│   │       └── SettingsModal.vue    # Управление провайдерами и ключами
+│   │       └── SettingsModal.vue    # Управление провайдерами и ключами (типы синхронизированы)
 │   ├── vite.config.ts               # proxy /api → :{port из config.json}, build → ../backend/public
 │   ├── index.html
-│   ├── package.json
+│   ├── package.json                 # type: "module" (ESM, для @tailwindcss/vite)
 │   └── tsconfig.json
 └── data/                            # Рабочая директория (создаётся при первом запуске)
     ├── snippets.json
     ├── blueprints/
-    │   └── example.json
+    │   └── example.json             # Дефолтный blueprint (корректные модель/quality)
     ├── media/
     │   └── registry.json
     └── logs/
@@ -231,14 +236,6 @@ interface Provider {
 | `edit` | `/v1/images/edits` | Провайдеры с OpenAI-совместимым Img2Img |
 | `generate` | `/v1/images/generations` | Провайдеры без `/edits` (base64 в промпт) |
 
-### Пресеты ретуши
-
-| Пресет | Strength | Сценарий |
-|---|---|---|
-| `soft` | 0.3 | Лёгкая коррекция |
-| `medium` | 0.6 | Стандарт |
-| `strong` | 0.9 | Сильная переработка |
-
 ### Добавление нового провайдера
 
 1. Добавить объект в `config.json → providers[]`
@@ -275,25 +272,38 @@ Snapshot сохраняется в `registry.json` — всегда воспро
 
 ---
 
-## 11. Известные проблемы и что нужно проверить
+## 11. Исправленные проблемы (история сессии)
 
-1. **Шрифт Inter** — `frontend/src/assets/fonts/Inter-VariableFont.woff2` отсутствует. Добавить файл или убрать `@font-face`.
-2. **PowerShell folder picker** — только Windows. На Linux/macOS упадёт.
-3. **Стратегия `generate` для ретуши** — передача base64 в промпт нестандартна, поведение зависит от провайдера.
-4. **Monaco workers** — требует `vite-plugin-monaco-editor`. Проверить после `npm install`.
-5. **sharp на Windows** — нативный модуль, требует `node-gyp`. Возможны проблемы при первой установке.
-6. **`FormData` import** в `provider.ts` — импортируется, но не используется. Убрать.
-7. **`SettingsModal.vue`** — UI для управления провайдерами/ключами написан, но логика переключения `active_key` требует проверки после рефакторинга схемы ключей.
-8. **Валидация PUT /api/config** — базовая (port range, providers array). Полной схемы нет.
+| Проблема | Решение | Коммит |
+|---|---|---|
+| `concurrently` рвал TCP на Windows | Заменён на `npm-run-all` в корневом `package.json` | `66ae51a` |
+| `catch-all` роут зависал без фронтенд-билда | Возвращает `503` если `index.html` отсутствует | `bee7796` |
+| `dotenv` не находил `.env` при смене `cwd` (tsx) | `dotenvConfig({ path: join(getRootDir(), '.env') })` | `5d92ebf` |
+| Авто-открытие браузера при dev-старте | Пакет `open` удалён из `index.ts` | `8051c7e` |
+| `SettingsModal` рассинхронизирован с новой схемой | Типы `ProviderKey` синхронизированы, UI multi-key | `43acdf9` |
+| Inter шрифт без кириллицы | `@font-face` split: Latin + Cyrillic `unicode-range` | `1cd840b` |
+| `vite-plugin-monaco-editor` неверное имя пакета | Исправлено имя npm-пакета в `package.json` | `45f513e` |
+| `getDataDir()` использовал AppData fallback | Всегда резолвит от `getRootDir()` | `bc8102a` |
+| `type:module` отсутствовал в frontend `package.json` | Добавлено для ESM-только зависимостей (@tailwindcss/vite) | `b5f175` |
 
 ---
 
-## 12. Следующие шаги (backlog)
+## 12. Известные проблемы (остались)
 
-- [ ] Проверить и запустить локально (npm install + npm run dev)
-- [ ] Исправить `FormData` import в `provider.ts`
-- [ ] Добавить `Inter-VariableFont.woff2`
-- [ ] Реализовать UI для добавления провайдеров и ключей в `SettingsModal`
+1. **PowerShell folder picker** — только Windows. На Linux/macOS упадёт (не приоритет).
+2. **Стратегия `generate` для ретуши** — передача base64 в промпт нестандартна, поведение зависит от провайдера.
+3. **`FormData` import** в `provider.ts` — импортируется, но не используется. Убрать.
+4. **Валидация PUT /api/config** — базовая (port range, providers array). Полной схемы нет.
+5. **sharp на Windows** — нативный модуль, возможны проблемы с `node-gyp` при первой установке.
+
+---
+
+## 13. Backlog (следующие шаги)
+
+- [ ] Выбор модели в UI (общий для Retouch и Generate, из `provider.models[]`)
+- [ ] Выбор формата вывода `webp/jpeg/png` в Inspector, дефолт `webp`
+- [ ] Пользовательская рабочая папка — сохраняется в `config.json`, меняется через UI
+- [ ] Убрать `FormData` import в `provider.ts`
 - [ ] Добавить Zod-валидацию на `PUT /api/config`
 - [ ] Electron-обёртка
 - [ ] Тесты (хотя бы интеграционные на batch pipeline)
