@@ -1,8 +1,13 @@
-import 'dotenv/config';
+import { config as dotenvConfig } from 'dotenv';
+import { getRootDir } from './utils/paths.js';
+import path from 'path';
+
+// Явный путь к .env — tsx может менять cwd на backend/, ищем корень проекта
+dotenvConfig({ path: path.join(getRootDir(), '.env') });
+
 import express from 'express';
 import { createServer } from 'http';
 import net from 'net';
-import path from 'path';
 import fs from 'fs';
 import { initDataDir } from './utils/init.js';
 import { loadConfig } from './utils/config.js';
