@@ -2,7 +2,6 @@ import { config as dotenvConfig } from 'dotenv';
 import { getRootDir } from './utils/paths.js';
 import path from 'path';
 
-// Явный путь к .env — tsx может менять cwd на backend/, ищем корень проекта
 dotenvConfig({ path: path.join(getRootDir(), '.env') });
 
 import express from 'express';
@@ -72,16 +71,8 @@ async function bootstrap(): Promise<void> {
   const port = await findFreePort(config.port ?? 3333);
   const server = createServer(app);
 
-  server.listen(port, '127.0.0.1', async () => {
-    const url = `http://localhost:${port}`;
-    logger.info(`Сервер запущен: ${url}`);
-
-    try {
-      const { default: open } = await import('open');
-      await open(url);
-    } catch {
-      logger.warn('Не удалось открыть браузер автоматически');
-    }
+  server.listen(port, '127.0.0.1', () => {
+    logger.info(`Сервер запущен: http://localhost:${port}`);
   });
 
   process.on('SIGINT',  () => { logger.info('Завершение...'); server.close(); process.exit(0); });
