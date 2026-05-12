@@ -1,0 +1,18 @@
+[
+  {
+    "id": "default-generate-1",
+    "title": "Портрет (пример)",
+    "type": "generate",
+    "text": "Professional portrait photo, soft studio lighting, neutral background, high detail, 8k",
+    "created_at": "2026-05-12T15:27:54.819Z",
+    "updated_at": "2026-05-12T15:27:54.820Z"
+  },
+  {
+    "id": "default-retouch-1",
+    "title": "Мягкая ретушь (пример)",
+    "type": "retouch",
+    "text": "Retouch this photo: smooth skin, enhance colors, improve lighting. Keep the original composition.",
+    "created_at": "2026-05-12T15:27:54.820Z",
+    "updated_at": "2026-05-12T15:27:54.820Z"
+  }
+]
