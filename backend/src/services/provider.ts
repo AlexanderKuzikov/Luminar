@@ -1,6 +1,5 @@
 import OpenAI from 'openai';
 import fs from 'fs';
-import FormData from 'form-data';
 import { getActiveProvider, getProviderById } from '../utils/config.js';
 import { providerLogger } from '../utils/logger.js';
 import type { Provider } from '../types.js';
@@ -11,16 +10,13 @@ const RETOUCH_STRENGTH_MAP = {
   strong: 0.9,
 };
 
-function makeClient(provider: Provider): OpenAI {
+function makeClient(provider: Provider & { apiKey: string }): OpenAI {
   return new OpenAI({
     apiKey: provider.apiKey,
     baseURL: provider.baseURL,
   });
 }
 
-/**
- * Генерация с нуля (Text-to-Image).
- */
 export async function generate(params: {
   providerId?: string;
   prompt: string;
@@ -35,7 +31,7 @@ export async function generate(params: {
 
   if (!provider) throw new Error('No active provider configured');
 
-  const client = makeClient(provider);
+  const client = makeClient(provider as Provider & { apiKey: string });
 
   const requestPayload = {
     model: params.model,
@@ -61,10 +57,6 @@ export async function generate(params: {
   return b64;
 }
 
-/**
- * Ретушь (Img2Img).
- * Переключается между стратегиями edit / generate на основе config.
- */
 export async function retouch(params: {
   providerId?: string;
   imageBuffer: Buffer;
@@ -80,7 +72,7 @@ export async function retouch(params: {
 
   if (!provider) throw new Error('No active provider configured');
 
-  const client = makeClient(provider);
+  const client = makeClient(provider as Provider & { apiKey: string });
   const strength = RETOUCH_STRENGTH_MAP[params.preset];
   const strategy = provider.retouch_strategy ?? 'edit';
 
@@ -97,8 +89,6 @@ export async function retouch(params: {
   let b64: string | undefined;
 
   if (strategy === 'edit') {
-    // Стратегия 1: /v1/images/edits — стандартный OpenAI Img2Img
-    // openai SDK ожидает File-like объект или путь, передаём через toFile
     const imageFile = await OpenAI.toFile(params.imageBuffer, 'image.jpg', { type: 'image/jpeg' });
     const response = await (client.images as any).edit({
       model: params.model,
@@ -110,8 +100,6 @@ export async function retouch(params: {
     });
     b64 = response.data?.[0]?.b64_json;
   } else {
-    // Стратегия 2: /v1/images/generations — fallback
-    // Исходное изображение кодируем в base64 data URL и добавляем в промпт
     const b64source = params.imageBuffer.toString('base64');
     const dataUrl = `data:image/jpeg;base64,${b64source}`;
     const augmentedPrompt = `${params.prompt}\n\n[Source image]: ${dataUrl}`;

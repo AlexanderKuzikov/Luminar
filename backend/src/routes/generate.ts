@@ -21,10 +21,13 @@ router.post('/', async (req, res) => {
     const provider = getActiveProvider();
     if (!provider) return res.status(400).json({ error: 'No active provider configured' });
 
+    const apiKey = (provider as any).apiKey;
+    if (!apiKey) return res.status(400).json({ error: `API key not set. Add ${provider.active_key} to .env` });
+
     const { blueprint, promptSnapshot } = compile(body.blueprint_id, body.prompt_override);
-    const model = blueprint.params.model ?? provider.models[0]?.id ?? '';
-    const size = blueprint.params.size ?? '1024x1024';
-    const quality = blueprint.params.quality ?? 'low';
+    const model   = blueprint.params.model   ?? provider.models[0]?.id ?? '';
+    const size    = blueprint.params.size    ?? '1024x1024';
+    const quality = blueprint.params.quality ?? provider.models[0]?.quality[0] ?? 'standard';
     const sessionId = new Date().toISOString();
 
     const b64 = await generate({ prompt: promptSnapshot, model, size, quality });

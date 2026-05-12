@@ -22,11 +22,11 @@ export const api = {
   imageUrl:     (path: string) => `/api/files/image?path=${encodeURIComponent(path)}`,
 
   // Blueprints
-  listBlueprints: () => request<BlueprintMeta[]>('GET', '/blueprints'),
-  getBlueprint:   (id: string) => request<unknown>('GET', `/blueprints/${id}`),
-  saveBlueprint:  (id: string, data: unknown) => request<{ ok: boolean }>('PUT', `/blueprints/${id}`, data),
-  createBlueprint:(data: unknown) => request<{ ok: boolean; id: string }>('POST', '/blueprints', data),
-  deleteBlueprint:(id: string) => request<{ ok: boolean }>('DELETE', `/blueprints/${id}`),
+  listBlueprints:  () => request<BlueprintMeta[]>('GET', '/blueprints'),
+  getBlueprint:    (id: string) => request<unknown>('GET', `/blueprints/${id}`),
+  saveBlueprint:   (id: string, data: unknown) => request<{ ok: boolean }>('PUT', `/blueprints/${id}`, data),
+  createBlueprint: (data: unknown) => request<{ ok: boolean; id: string }>('POST', '/blueprints', data),
+  deleteBlueprint: (id: string) => request<{ ok: boolean }>('DELETE', `/blueprints/${id}`),
 
   // Snippets
   getSnippets:  () => request<Record<string, Record<string, string>>>('GET', '/snippets'),
@@ -37,40 +37,65 @@ export const api = {
   saveConfig: (data: unknown) => request<{ ok: boolean }>('PUT', '/config', data),
 
   // Batch
-  startBatch: (data: BatchRetouchRequest) => request<{ jobId: string }>('POST', '/batch/retouch', data),
-  getBatch:   (id: string) => request<BatchJob>('GET', `/batch/${id}`),
-  cancelBatch:(id: string) => request<{ cancelled: boolean }>('DELETE', `/batch/${id}`),
+  startBatch:  (data: BatchRetouchRequest) => request<{ jobId: string }>('POST', '/batch/retouch', data),
+  getBatch:    (id: string) => request<BatchJob>('GET', `/batch/${id}`),
+  cancelBatch: (id: string) => request<{ cancelled: boolean }>('DELETE', `/batch/${id}`),
 
   // Generate
   generate: (data: { blueprint_id: string; prompt_override?: string }) =>
-    request<{ entry: unknown; result_file: string }>('POST', '/generate', data),
+    request<{ entry: RegistryEntry; result_file: string }>('POST', '/generate', data),
 
   // Registry
-  getRegistry:  () => request<RegistryEntry[]>('GET', '/registry'),
-  getSessions:  () => request<SessionMeta[]>('GET', '/registry/sessions'),
-  rejectEntry:  (id: number) => request<{ ok: boolean }>('PATCH', `/registry/${id}/reject`),
+  getRegistry: () => request<RegistryEntry[]>('GET', '/registry'),
+  getSessions: () => request<SessionMeta[]>('GET', '/registry/sessions'),
+  rejectEntry: (id: number) => request<{ ok: boolean }>('PATCH', `/registry/${id}/reject`),
 
   // SSE
   batchEvents: (jobId: string) => new EventSource(`/api/batch/${jobId}/events`),
 };
 
 // --- Types (mirrors backend) ---
+
 export interface FileEntry { name: string; path: string; size: number; }
 export interface BlueprintMeta { id: string; title: string; }
-export interface AppConfig {
-  active_provider: string;
-  ui: { theme: string; default_output: string };
-  providers: ProviderConfig[];
+
+export interface ProviderKey {
+  id: string;
+  label: string;
+  envVar: string;
+  configured: boolean; // флаг от бэкенда: есть ли значение в .env
 }
+
+export interface ModelConfig {
+  id: string;
+  name: string;
+  modes: string[];
+  sizes: string[];
+  quality: string[];
+}
+
 export interface ProviderConfig {
-  id: string; name: string; baseURL: string; apiKey: string;
+  id: string;
+  name: string;
+  baseURL: string;
+  active_key: string;
+  keys: ProviderKey[];
   retouch_strategy: 'edit' | 'generate';
   models: ModelConfig[];
 }
-export interface ModelConfig {
-  id: string; name: string; modes: string[];
-  sizes: string[]; quality: string[];
+
+export interface UIConfig {
+  theme: string;
+  default_output: string;
 }
+
+export interface AppConfig {
+  port: number;
+  active_provider: string;
+  ui: UIConfig;
+  providers: ProviderConfig[];
+}
+
 export interface BatchRetouchRequest {
   source_files: string[];
   blueprint_id: string;
@@ -79,15 +104,18 @@ export interface BatchRetouchRequest {
   output_format: 'webp' | 'jpeg' | 'png';
   max_dimension: number;
 }
+
 export interface BatchJob {
   id: string; session_id: string; status: string;
   total: number; completed: number; failed: number;
   items: BatchItem[];
 }
+
 export interface BatchItem {
   source_file: string; status: string;
   result_file?: string; error?: string;
 }
+
 export interface RegistryEntry {
   id: number; session_id: string; type: string;
   source_file?: string; result_file: string;
@@ -96,6 +124,7 @@ export interface RegistryEntry {
   retouch_preset?: string; status: string;
   error?: string; created_at: string;
 }
+
 export interface SessionMeta {
   session_id: string; count: number; failed: number; date: string;
 }
