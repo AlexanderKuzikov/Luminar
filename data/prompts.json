@@ -14,5 +14,21 @@
     "text": "Retouch this photo: smooth skin, enhance colors, improve lighting. Keep the original composition.",
     "created_at": "2026-05-12T15:27:54.820Z",
     "updated_at": "2026-05-12T15:27:54.820Z"
+  },
+  {
+    "id": "e0290804-077c-4f6a-be50-07e613b59f92",
+    "title": "Покемон-шоу",
+    "type": "generate",
+    "text": "Нарисуй что-нибудь невообразимо крутое на тему покемонов.",
+    "created_at": "2026-05-12T15:38:00.898Z",
+    "updated_at": "2026-05-12T15:39:07.776Z"
+  },
+  {
+    "id": "90a36f57-c912-4a7a-9590-024aa6bc1ddb",
+    "title": "Шоу Звездных Войн",
+    "type": "generate",
+    "text": "Нарисуй что-нибудь невообразимо крутое и фотореалистичное на тему Звездных Войн.",
+    "created_at": "2026-05-12T15:40:52.647Z",
+    "updated_at": "2026-05-12T15:41:15.500Z"
   }
 ]
