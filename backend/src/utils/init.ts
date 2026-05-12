@@ -29,27 +29,25 @@ const DEFAULT_BLUEPRINT = {
   }
 };
 
-/**
- * Инициализирует data/ директорию при первом запуске.
- * config.json НЕ трогается — он живёт в корне репо/рядом с exe.
- */
 export function initDataDir(): void {
   const dataDir = getDataDir();
-  logger.info(`[init] Data directory: ${dataDir}`);
 
+  // Создаём все папки сразу, до любого обращения к logger
   const dirs = [
     dataDir,
+    Paths.logs(),
     Paths.blueprints(),
     Paths.media(),
-    Paths.logs(),
   ];
 
   for (const dir of dirs) {
     if (!fs.existsSync(dir)) {
       fs.mkdirSync(dir, { recursive: true });
-      logger.info(`[init] Created: ${dir}`);
     }
   }
+
+  // logger готов к использованию только после создания папок
+  logger.info(`[init] Data directory: ${dataDir}`);
 
   if (!fs.existsSync(Paths.snippets())) {
     fs.writeFileSync(Paths.snippets(), JSON.stringify(DEFAULT_SNIPPETS, null, 2), 'utf-8');

@@ -5,7 +5,6 @@ import path from 'path';
 import { readFileSync } from 'fs';
 import { resolve } from 'path';
 
-// Читаем порт из корневого config.json — единый источник правды
 function getBackendPort(): number {
   try {
     const configPath = resolve(__dirname, '../config.json');
@@ -18,11 +17,16 @@ function getBackendPort(): number {
 
 const backendPort = getBackendPort();
 
+// vite-plugin-monaco-editor экспортирует объект с .default в CJS-окружении
+// поэтому нужно проверить оба варианта
+const monacoPlugin = typeof monacoEditorPlugin === 'function'
+  ? monacoEditorPlugin
+  : (monacoEditorPlugin as any).default;
+
 export default defineConfig({
   plugins: [
     vue(),
-    // Локальная сборка Monaco workers — без CDN
-    (monacoEditorPlugin as any).default({
+    monacoPlugin({
       languageWorkers: ['json', 'editorWorkerService'],
     }),
   ],
