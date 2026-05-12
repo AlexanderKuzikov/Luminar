@@ -1,13 +1,13 @@
 {
   "title": "Example Blueprint",
-  "subject": "{{objects.example}}",
-  "lighting": "{{lighting.studio_soft}}",
-  "environment": "{{environments.white_bg}}",
+  "subject": "{{ objects.example }}",
+  "lighting": "{{ lighting.studio_soft }}",
+  "environment": "{{ environments.white_bg }}",
   "camera": "Product photography, sharp focus, 4:3",
   "negative_prompt": "blur, noise, watermark, text",
   "params": {
     "size": "1024x1024",
-    "quality": "low",
-    "model": ""
+    "quality": "standard",
+    "model": "gemini-3-pro-image"
   }
 }

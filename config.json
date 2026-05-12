@@ -18,14 +18,41 @@
           "envVar": "VSELLM_KEY_1"
         }
       ],
-      "retouch_strategy": "edit",
+      "retouch_strategy": "generate",
       "models": [
         {
           "id": "gemini-3-pro-image",
-          "name": "Gemini 3 Pro Image",
-          "modes": ["generate", "retouch"],
-          "sizes": ["1024x1024", "1536x1024", "1024x1536"],
-          "quality": ["standard", "hd"]
+          "name": "Nano Banana Pro",
+          "modes": [
+            "generate",
+            "retouch"
+          ],
+          "sizes": [
+            "1024x1024",
+            "1536x1024",
+            "1024x1536"
+          ],
+          "quality": [
+            "standard",
+            "hd"
+          ]
+        },
+                {
+          "id": "gemini-2.5-flash-image",
+          "name": "Nano Banana",
+          "modes": [
+            "generate",
+            "retouch"
+          ],
+          "sizes": [
+            "1024x1024",
+            "1536x1024",
+            "1024x1536"
+          ],
+          "quality": [
+            "standard",
+            "hd"
+          ]
         }
       ]
     }
