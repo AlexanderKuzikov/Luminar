@@ -44,7 +44,7 @@ Luminar — профессиональная локальная утилита �
 
 ```
 Luminar/
-├── app.exe                  # Скомпилированный Node.js сервер
+├── app.exe                  # Скомпилированный Node.js сервер (SEA)
 ├── config.json              # Настройки: порт, провайдеры, UI (без ключей!)
 ├── .env                     # API-ключи (создать вручную из .env.example)
 ├── .env.example             # Шаблон переменных окружения
@@ -117,7 +117,7 @@ VSELLM_KEY_1=sk-your-key-here
 
 ### Порт
 
-Приложение стартует на порту из `config.json` (по умолчанию `3333`). Если занят — автоматически пробует следующие порты (`3334`, `3335` ... до `3352`). Порт выводится в логе при запуске.
+Приложение стартует на порте из `config.json` (по умолчанию `3333`). Если занят — автоматически пробует следующие порты (`3334`, `3335` ... до `3352`). Порт выводится в логе при запуске.
 
 ### Добавление провайдера
 
@@ -137,20 +137,26 @@ VSELLM_KEY_1=sk-your-key-here
 ### Установка зависимостей
 
 ```bash
-# Backend
+# Из корня репозитория
+npm install           # устанавливает инструменты (npm-run-all и др.)
 cd backend && npm install
-
-# Frontend
-cd frontend && npm install
+cd ../frontend && npm install
 ```
 
 ### Режим разработки
 
 ```bash
-# Backend (tsx watch, hot-reload)
+# Из корня — поднимает backend + frontend параллельно
+npm run dev
+```
+
+Или по отдельности (2 терминала):
+
+```bash
+# Терминал 1: Backend (tsx watch, hot-reload)
 cd backend && npm run dev
 
-# Frontend (Vite dev server)
+# Терминал 2: Frontend (Vite dev server)
 cd frontend && npm run dev
 ```
 
@@ -160,16 +166,14 @@ Frontend: `http://localhost:5173` — все `/api` запросы прокси�
 ### Production сборка
 
 ```bash
-# 1. Собрать фронтенд → ../backend/public/
-cd frontend && npm run build
-
-# 2. Собрать бэкенд в bundle
-cd backend && npm run build
-
-# 3. Упаковать в SEA (Single Executable Application)
-npm run sea
-# Результат: release/app.exe
+npm run build
+# Развёртывает:
+#   1. frontend build → backend/public/
+#   2. backend bundle через esbuild
+#   3. SEA packaging → release/app.exe
 ```
+
+> **Примечание:** Процесс сборки SEA ещё в разработке (не завершён). Для запуска сейчас использовать `npm run dev`.
 
 ---
 
@@ -220,31 +224,7 @@ SSE-событие → Vue обновляет прогресс-бар и гал�
 
 ---
 
-## 📐 UI Layout (FullHD, Dark Theme)
-
-```
-┌─────────────────────────────────────────────────────────────────┐
-│ [Ретушь] [Генерация] [Библиотека]        ● Local :3333  ⚙ Keys │
-├──────────────┬──────────────────────────────┬───────────────────┤
-│              │                              │  Blueprint:       │
-│ 📁 /photos   │                              │  [dropdown]       │
-│              │   Before │ After             │                   │
-│ ☑ img_001   │   (шторка/side-by-side)       │  Monaco Editor    │
-│ ☑ img_002   │                              │  (промпт)         │
-│ ☐ img_003   │                              │                   │
-│ ☑ img_004   │                              │  Format: W J P    │
-│              │                              │  Max: 1536px      │
-│              │                              │  Output: /proc    │
-│              │                              │                   │
-│ [Выбор папки]│                              │ ██████░░ 6/10     │
-│              │                              │ [START BATCH ▶]   │
-└──────────────┴──────────────────────────────┴───────────────────┘
-  300px                ~1200px                       400px
-```
-
----
-
-## 📁 Blueprint System
+## 📀 Blueprint System
 
 Каждый промпт — JSON-файл с Handlebars-шаблонизацией.
 
@@ -286,7 +266,6 @@ SSE-событие → Vue обновляет прогресс-бар и гал�
 - **GET /api/config** возвращает только флаг `configured: bool` — никаких значений или масок ключей
 - **PUT /api/config** принимает структуру (провайдер, active_key, порт, UI), значения ключей игнорируются
 - Сервер слушает строго на `127.0.0.1` (localhost), не на `0.0.0.0`
-- `/api/files/image?path=` — только GET, только для изображений
 
 ---
 
