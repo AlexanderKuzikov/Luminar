@@ -3,6 +3,7 @@ import express from 'express';
 import { createServer } from 'http';
 import net from 'net';
 import path from 'path';
+import fs from 'fs';
 import { initDataDir } from './utils/init.js';
 import { loadConfig } from './utils/config.js';
 import { logger } from './utils/logger.js';
@@ -56,7 +57,11 @@ async function bootstrap(): Promise<void> {
     if (req.path.startsWith('/api/')) {
       return res.status(404).json({ error: 'Not found' });
     }
-    res.sendFile(path.join(publicDir, 'index.html'));
+    const indexHtml = path.join(publicDir, 'index.html');
+    if (!fs.existsSync(indexHtml)) {
+      return res.status(503).json({ error: 'Frontend not built. Run: npm run build' });
+    }
+    res.sendFile(indexHtml);
   });
 
   const port = await findFreePort(config.port ?? 3333);
