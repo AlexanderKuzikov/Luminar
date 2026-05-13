@@ -1,5 +1,4 @@
 import OpenAI from 'openai';
-import fs from 'fs';
 import https from 'https';
 import http from 'http';
 import { getActiveProvider, getProviderById } from '../utils/config.js';
@@ -69,30 +68,21 @@ export async function generate(params: {
 
   const response = await client.images.generate(requestPayload);
 
-  // Log full raw response structure (truncate b64 data)
-  try {
-    const raw = JSON.parse(JSON.stringify(response, (key, val) => {
-      if (key === 'b64_json' && typeof val === 'string' && val.length > 40) {
-        return val.slice(0, 40) + `...(${val.length})`;
-      }
-      return val;
-    }));
-    providerLogger.log({ type: 'generate_raw_response', raw });
-  } catch {}
-
   providerLogger.log({
     type: 'generate_response',
     provider: provider.id,
-    count: response.data?.length,
+    count: response.data?.length ?? 0,
     has_b64: !!response.data?.[0]?.b64_json,
     has_url: !!response.data?.[0]?.url,
   });
 
-  const item = response.data?.[0];
-  if (!item) throw new Error('API returned no image data');
+  if (!response.data || response.data.length === 0) {
+    throw new Error('Запрос отклонён провайдером (возможно, ограничения авторских прав или контент-политика)');
+  }
 
+  const item = response.data[0];
   const b64 = await extractB64(item);
-  if (!b64) throw new Error('API returned no image data (no b64_json or url)');
+  if (!b64) throw new Error('API вернул изображение без данных (нет b64_json и url)');
   return b64;
 }
 
@@ -156,8 +146,8 @@ export async function retouch(params: {
 
   providerLogger.log({ type: 'retouch_response', provider: provider.id, has_b64: !!item?.b64_json, has_url: !!item?.url });
 
-  if (!item) throw new Error('API returned no image data');
+  if (!item) throw new Error('Запрос отклонён провайдером (возможно, ограничения авторских прав или контент-политика)');
   const b64 = await extractB64(item);
-  if (!b64) throw new Error('API returned no image data (no b64_json or url)');
+  if (!b64) throw new Error('API вернул изображение без данных (нет b64_json и url)');
   return b64;
 }
