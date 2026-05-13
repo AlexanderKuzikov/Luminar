@@ -19,7 +19,6 @@ function makeClient(provider: Provider & { apiKey: string }): OpenAI {
   });
 }
 
-/** Скачивает URL и возвращает base64-строку */
 function fetchUrlAsBase64(url: string): Promise<string> {
   return new Promise((resolve, reject) => {
     const lib = url.startsWith('https') ? https : http;
@@ -32,7 +31,6 @@ function fetchUrlAsBase64(url: string): Promise<string> {
   });
 }
 
-/** Извлекает b64 из ответа: сначала b64_json, потом fallback на url */
 async function extractB64(item: { b64_json?: string | null; url?: string | null }): Promise<string | undefined> {
   if (item.b64_json) return item.b64_json;
   if (item.url) {
@@ -70,6 +68,17 @@ export async function generate(params: {
   providerLogger.log({ type: 'generate_request', provider: provider.id, ...requestPayload });
 
   const response = await client.images.generate(requestPayload);
+
+  // Log full raw response structure (truncate b64 data)
+  try {
+    const raw = JSON.parse(JSON.stringify(response, (key, val) => {
+      if (key === 'b64_json' && typeof val === 'string' && val.length > 40) {
+        return val.slice(0, 40) + `...(${val.length})`;
+      }
+      return val;
+    }));
+    providerLogger.log({ type: 'generate_raw_response', raw });
+  } catch {}
 
   providerLogger.log({
     type: 'generate_response',
