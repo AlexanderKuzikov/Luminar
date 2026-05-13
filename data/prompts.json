@@ -3,9 +3,9 @@
     "id": "default-generate-1",
     "title": "Портрет (пример)",
     "type": "generate",
-    "text": "Professional portrait photo, soft studio lighting, neutral background, high detail, 8k",
+    "text": "Professional portrait photo, soft studio lighting, neutral background, high detail, beautifull young woman model, 16:9",
     "created_at": "2026-05-12T15:27:54.819Z",
-    "updated_at": "2026-05-12T15:27:54.820Z"
+    "updated_at": "2026-05-13T05:50:31.730Z"
   },
   {
     "id": "default-retouch-1",
@@ -27,8 +27,8 @@
     "id": "90a36f57-c912-4a7a-9590-024aa6bc1ddb",
     "title": "Шоу Звездных Войн",
     "type": "generate",
-    "text": "Нарисуй что-нибудь невообразимо крутое и фотореалистичное на тему Звездных Войн.",
+    "text": "Нарисуй что-нибудь невообразимо крутое и фотореалистичное на тему космических войн. 16:9",
     "created_at": "2026-05-12T15:40:52.647Z",
-    "updated_at": "2026-05-12T15:41:15.500Z"
+    "updated_at": "2026-05-13T06:09:11.272Z"
   }
 ]
