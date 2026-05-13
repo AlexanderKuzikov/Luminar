@@ -1,5 +1,7 @@
 import OpenAI from 'openai';
 import fs from 'fs';
+import https from 'https';
+import http from 'http';
 import { getActiveProvider, getProviderById } from '../utils/config.js';
 import { providerLogger } from '../utils/logger.js';
 import type { Provider } from '../types.js';
@@ -15,6 +17,29 @@ function makeClient(provider: Provider & { apiKey: string }): OpenAI {
     apiKey: provider.apiKey,
     baseURL: provider.baseURL,
   });
+}
+
+/** Скачивает URL и возвращает base64-строку */
+function fetchUrlAsBase64(url: string): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const lib = url.startsWith('https') ? https : http;
+    lib.get(url, (res) => {
+      const chunks: Buffer[] = [];
+      res.on('data', (chunk: Buffer) => chunks.push(chunk));
+      res.on('end', () => resolve(Buffer.concat(chunks).toString('base64')));
+      res.on('error', reject);
+    }).on('error', reject);
+  });
+}
+
+/** Извлекает b64 из ответа: сначала b64_json, потом fallback на url */
+async function extractB64(item: { b64_json?: string | null; url?: string | null }): Promise<string | undefined> {
+  if (item.b64_json) return item.b64_json;
+  if (item.url) {
+    providerLogger.log({ type: 'generate_url_fallback', url: item.url.slice(0, 80) });
+    return fetchUrlAsBase64(item.url);
+  }
+  return undefined;
 }
 
 export async function generate(params: {
@@ -50,10 +75,15 @@ export async function generate(params: {
     type: 'generate_response',
     provider: provider.id,
     count: response.data?.length,
+    has_b64: !!response.data?.[0]?.b64_json,
+    has_url: !!response.data?.[0]?.url,
   });
 
-  const b64 = response.data?.[0]?.b64_json;
-  if (!b64) throw new Error('API returned no image data');
+  const item = response.data?.[0];
+  if (!item) throw new Error('API returned no image data');
+
+  const b64 = await extractB64(item);
+  if (!b64) throw new Error('API returned no image data (no b64_json or url)');
   return b64;
 }
 
@@ -86,7 +116,7 @@ export async function retouch(params: {
     size: params.size,
   });
 
-  let b64: string | undefined;
+  let item: { b64_json?: string | null; url?: string | null } | undefined;
 
   if (strategy === 'edit') {
     const imageFile = await OpenAI.toFile(params.imageBuffer, 'image.jpg', { type: 'image/jpeg' });
@@ -98,7 +128,7 @@ export async function retouch(params: {
       n: 1,
       response_format: 'b64_json',
     });
-    b64 = response.data?.[0]?.b64_json;
+    item = response.data?.[0];
   } else {
     const b64source = params.imageBuffer.toString('base64');
     const dataUrl = `data:image/jpeg;base64,${b64source}`;
@@ -112,11 +142,13 @@ export async function retouch(params: {
       quality: params.quality,
       response_format: 'b64_json',
     });
-    b64 = response.data?.[0]?.b64_json;
+    item = response.data?.[0];
   }
 
-  providerLogger.log({ type: 'retouch_response', provider: provider.id, success: !!b64 });
+  providerLogger.log({ type: 'retouch_response', provider: provider.id, has_b64: !!item?.b64_json, has_url: !!item?.url });
 
-  if (!b64) throw new Error('API returned no image data');
+  if (!item) throw new Error('API returned no image data');
+  const b64 = await extractB64(item);
+  if (!b64) throw new Error('API returned no image data (no b64_json or url)');
   return b64;
 }
